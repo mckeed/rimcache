@@ -1,0 +1,12 @@
+= Rimcache - the Right-in-Memory Cache
+
+"Caches" your commonly-used objects by just storing them frozen in a global hash.
+
+  Rimcache.cache(:default_settings) do
+    Settings.default
+  end
+
+It avoids a round-trip to Redis/memcache and serialization, so associations will stay loaded.
+
+Expiration is handled via Rails low-level caching or a configurable ActiveSupport::Cache::Store.
+See +Rimcache::Config+
