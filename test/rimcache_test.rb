@@ -53,7 +53,7 @@ class TestRimcache < Minitest::Test
     # Expire directly in expiry_cache to simulate it being expired from another process
     config.check_frequency = 0
     config.expiry_cache.stub(:read, { @key => Time.now }) do
-      sleep 0.1
+      sleep 0.2
 
       new_value = Rimcache.fetch(@key) { ["value5"] }
 
@@ -77,11 +77,36 @@ class TestRimcache < Minitest::Test
   end
 
   def test_check_frequency_config
-    Rimcache.config.check_frequency = 0.1.seconds
+    Rimcache.config.check_frequency = 0.3.seconds
     orig_value = Rimcache.fetch(@key) { ["value8"] }
 
+    # Value not yet expired
     assert_equal orig_value, Rimcache.fetch(@key) { ["value9"] }
 
-    sleep 0.12
+    Rimcache.config.expiry_cache.stub(:read, { @key => Time.now }) do
+      # Value is expired but we re-use expiry cache read from above
+      assert_equal orig_value, Rimcache.fetch(@key) { ["value10"] }
+
+      # Wait longer than check_frequency
+      sleep 0.32
+
+      # Now we refresh expiry cache
+      assert_equal ["value11"], Rimcache.fetch(@key) { ["value11"] }
+    end
+  end
+
+  def test_threading
+    orig_value = Rimcache.fetch(@key) { ["value12"] }
+    thread = Thread.new do
+      assert_equal orig_value, Rimcache.fetch(@key) { ["value13"] }
+      sleep 0.2
+
+      assert_equal ["value 15"], Rimcache.fetch(@key) { ["value 14"] }
+    end
+    sleep 0.1
+    Rimcache.expire(@key)
+
+    assert_equal ["value 15"], Rimcache.fetch(@key) { ["value 15"] }
+    thread.join
   end
 end
